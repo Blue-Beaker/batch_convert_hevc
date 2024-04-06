@@ -59,28 +59,31 @@ def checkHEVC(file):
             return False
     return True
 converted=[]
+def getSizeStr(size:int):
+    if size>1000000000:
+        differString=f"{size/1000000000:+}GB"
+    elif size>1000000:
+        differString=f"{size/1000000:+}MB"
+    elif size>1000:
+        differString=f"{size/1000:+}kB"
+    else:
+        differString=f"{size:+}B"
+    return differString
 def convertInQueue():
     for item in queue:
         print(item)
     print(f"\033[0;37;44mTotal files: {queue.__len__()}\033[0m")
     for i in range(queue.__len__()):
         item=queue[i]
-        size=os.fstat(item[0]).st_size
+        size=os.stat(item[0]).st_size
+        print(f"\033[0;37;44m{item[0]} {getSizeStr(size).removeprefix('+')}\033[0m")
         result=convert(item[0],item[1])
-        size2=os.fstat(item[1]).st_size
+        size2=os.stat(item[1]).st_size
         if result==2:
             print(f"\033[0;37;41mCancelled: {i}/{queue.__len__()} '{item[0]}'=>'{item[1]}'\033[0m")
             return
         ratio=size2/size*100
-        sizeDifference=size2-size
-        if sizeDifference>1000000000:
-            differString=f"{sizeDifference/1000000000:+}GB"
-        elif sizeDifference>1000000:
-            differString=f"{sizeDifference/1000000:+}MB"
-        elif sizeDifference>1000:
-            differString=f"{sizeDifference/1000:+}kB"
-        else:
-            differString=f"{sizeDifference:+}B"
+        differString=getSizeStr(size2-size)
         converted.append([item[0],item[1],f"{size2-size}",differString,f"{ratio}%"])
         print(f"\033[0;37;44mConverted: {i}/{queue.__len__()} '{item[0]}'=>'{item[1]}' {differString} {ratio}%\033[0m")
 for filename in inputlist:
