@@ -60,11 +60,12 @@ def checkHEVC(file):
     return True
 converted=[]
 def getSizeStr(size:int):
-    if size>1000000000:
-        differString=f"{size/1000000000:+}GB"
-    elif size>1000000:
-        differString=f"{size/1000000:+}MB"
-    elif size>1000:
+    absSize=abs(size)
+    if absSize>1000000000:
+        differString=f"{size/1000000000:+.3f}GB"
+    elif absSize>1000000:
+        differString=f"{size/1000000:+.3f}MB"
+    elif absSize>1000:
         differString=f"{size/1000:+}kB"
     else:
         differString=f"{size:+}B"
@@ -84,8 +85,8 @@ def convertInQueue():
             return
         ratio=size2/size*100
         differString=getSizeStr(size2-size)
-        converted.append([item[0],item[1],f"{size2-size}",differString,f"{ratio}%"])
-        print(f"\033[0;37;44mConverted: {i}/{queue.__len__()} '{item[0]}'=>'{item[1]}' {differString} {ratio}%\033[0m")
+        converted.append([item[0],item[1],differString,f"{ratio:.1f}%"])
+        print(f"\033[0;37;44mConverted: {i}/{queue.__len__()} '{item[0]}'=>'{item[1]}' {differString} {ratio:.1f}%\033[0m")
 for filename in inputlist:
     queueFiles(filename)
 queue.sort()
