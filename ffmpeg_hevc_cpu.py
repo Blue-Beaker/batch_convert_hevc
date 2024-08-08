@@ -1,5 +1,6 @@
 #! /bin/python3
 import os,sys,argparse
+import shutil
 from pymediainfo import MediaInfo
 uid=1000
 gid=1000
@@ -7,10 +8,13 @@ gid=1000
 convertAlreadyHEVC=False
 verbosity=0
 inputlist=[]
+dry_run=False
 for item in sys.argv[1:]:
     if item.startswith("-"):
         if(item=="-f"):
             convertAlreadyHEVC=True
+        if(item=="--dry-run"):
+            dry_run=True
         if(item.startswith("-v")):
             verbosity=1
     else:
@@ -20,17 +24,22 @@ if inputlist.__len__()==0:
     inputlist=["./"]
 queue:list[list[str]]
 queue=[]
-def convert(inname,outname):
-    command=f"taskset -a -c 12-15 nice -n 19 ffmpeg -hide_banner -filter_threads 4 -filter_complex_threads 4 -y -i \"{inname}\" -c:v libx265 -crf 28 -preset medium -c:a copy \"{outname}\""
-
-#     command=f"""nice -n 15 ffmpeg -y -i \"{inname}\" -c:v libx265 -b:v 1600k -x265-params pass=1 -an -f null /dev/null && \
-# nice -n 15 ffmpeg -y -i \"{inname}\" -c:v libx265 -b:v 1600k -x265-params pass=2 -c:a copy \"{outname}\""""
+def convert(inname,outname,crf=28,targetSize=0):
+    
+    command=f"taskset -a -c 12-15 nice -n 19 ffmpeg -hide_banner -filter_threads 4 -filter_complex_threads 4 -y -i \"{inname}\" -c:v libx265 -crf {crf} -preset medium -c:a copy \"{outname}\""
 
     print(command)
+    if dry_run:
+        return 0
     result=os.system(command)
     print(result)
     os.chown(outname,uid,gid)
+    if targetSize>0 and crf<51:
+        size2=os.stat(outname).st_size
+        if size2/targetSize>0.75:
+            return convert(inname,outname,crf=min(crf+5,51),targetSize=targetSize)
     return result
+    return 0
 
 
 def addToQueue(infile,outfile):
@@ -43,8 +52,9 @@ def queueFiles(file):
             queueFiles(os.path.join(file,subpath))
     elif file.endswith(".mkv") or file.endswith(".mp4"):
         if(convertAlreadyHEVC or not checkHEVC(file)):
-            os.makedirs(os.path.join(os.path.dirname(file),"converted"),exist_ok=True)
-            os.chown(os.path.join(os.path.dirname(file),"converted"),uid,gid)
+            if not dry_run:
+                os.makedirs(os.path.join(os.path.dirname(file),"converted"),exist_ok=True)
+                os.chown(os.path.join(os.path.dirname(file),"converted"),uid,gid)
             addToQueue(file,os.path.join(os.path.dirname(file),"converted",name))
         else:
             print(f"{file} is already in HEVC, skipping")
@@ -78,7 +88,7 @@ def convertInQueue():
         item=queue[i]
         size=os.stat(item[0]).st_size
         print(f"\033[0;37;44m{item[0]} {getSizeStr(size).removeprefix('+')}\033[0m")
-        result=convert(item[0],item[1])
+        result=convert(item[0],item[1],targetSize=size)
         size2=os.stat(item[1]).st_size
         if result==2:
             print(f"\033[0;37;41mCancelled: {i}/{queue.__len__()} '{item[0]}'=>'{item[1]}'\033[0m")
